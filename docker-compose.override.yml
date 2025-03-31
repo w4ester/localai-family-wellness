@@ -1,0 +1,7 @@
+# Override file for docker-compose.yml
+# This file adds port forwarding for PostgreSQL to enable local development
+
+services:
+  postgres:
+    ports:
+      - "5432:5432"  # Forward PostgreSQL port to host

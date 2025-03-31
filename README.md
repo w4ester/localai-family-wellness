@@ -22,17 +22,39 @@ Make sure you have the following installed:
 
 ### 3. Initial Database Migration
 
-1. Make the migration script executable:
+#### Option A: Using Docker (Recommended)
+
+1. Make the migration scripts executable:
    ```bash
-   chmod +x create_migration.sh
+   chmod +x create_migration.sh run_migrations_docker.sh
    ```
 
-2. Run the migration script:
+2. Start the services:
    ```bash
-   ./create_migration.sh
+   docker compose up -d backend postgres
    ```
 
-This will create and apply the initial database migration.
+3. Run the migration script with Docker:
+   ```bash
+   ./create_migration.sh --docker -m "Initial schema"
+   ```
+
+#### Option B: Local Development
+
+1. Install PostgreSQL and pgvector extension locally
+
+2. Create the local database:
+   ```bash
+   chmod +x create_local_db.sh
+   ./create_local_db.sh
+   ```
+
+3. Create and apply migrations:
+   ```bash
+   ./create_migration.sh --local -m "Initial schema"
+   ```
+
+See [docs/alembic_migrations_guide.md](docs/alembic_migrations_guide.md) for detailed information on working with migrations.
 
 ### 4. Running the Application
 
@@ -58,9 +80,11 @@ docker-compose up -d
 1. Make your changes
 2. Create necessary database migrations:
    ```bash
-   cd backend
-   alembic revision --autogenerate -m "Description of changes"
-   alembic upgrade head
+   # Using Docker (recommended)
+   ./create_migration.sh --docker -m "Description of changes"
+   
+   # Or locally
+   ./create_migration.sh --local -m "Description of changes"
    ```
 3. Test your changes locally
 4. Commit and push your changes

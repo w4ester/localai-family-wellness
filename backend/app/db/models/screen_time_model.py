@@ -157,7 +157,7 @@ class ScreenTimeUsage(Base):
     # Type of activity if detectable (e.g., "browsing", "watching", "gaming") (optional)
     activity_type: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     # Flexible JSONB for any other relevant context data (optional)
-    metadata: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    usage_metadata: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
 
     def __repr__(self):
         return f"<ScreenTimeUsage user={self.user_id} app='{self.app_name}' duration={self.duration_seconds}s start={self.start_time}>"
@@ -205,6 +205,8 @@ class ScreenTimeExtensionRequest(Base):
     # Optional note from the responder
     response_note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
+    # Inside the ScreenTimeExtensionRequest class
+
     def __repr__(self):
-        return f"<ScreenTimeExtensionRequest id={self.id} user={self.user_id} status={self.status} requested={self.requested_minutes}min>"</function_content>
-</invoke>
+        """String representation for debugging."""
+        return f"<ScreenTimeExtensionRequest id={self.id} user={self.user_id} status={self.status} requested={self.requested_minutes}min>"
