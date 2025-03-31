@@ -1,0 +1,85 @@
+// app/tools/tools_config.json
+{
+  "tools": [
+    {
+      "name": "chore_tool",
+      "display_name": "Chore Management",
+      "description": "Manage chores for family members",
+      "server_url": "http://chore-tool:8001/execute",
+      "actions": [
+        {
+          "name": "get_chore_status",
+          "description": "Get the status of chores for a user or a specific chore",
+          "required_params": [],
+          "optional_params": ["chore_id", "user_id"]
+        },
+        {
+          "name": "create_chore",
+          "description": "Create a new chore assignment",
+          "required_params": ["title", "assigned_to_id", "frequency"],
+          "optional_params": ["description", "due_date", "points"]
+        },
+        {
+          "name": "update_chore_status",
+          "description": "Update the status of a chore",
+          "required_params": ["chore_id", "status"],
+          "optional_params": []
+        }
+      ]
+    },
+    {
+      "name": "screen_time_tool",
+      "display_name": "Screen Time Management",
+      "description": "Monitor and manage screen time for family members",
+      "server_url": "http://screen-tool:8002/execute",
+      "actions": [
+        {
+          "name": "get_screen_time_usage",
+          "description": "Get screen time usage for a user in a specific time period",
+          "required_params": ["user_id"],
+          "optional_params": ["start_date", "end_date"]
+        },
+        {
+          "name": "check_screen_time_allowed",
+          "description": "Check if screen time is currently allowed for a user",
+          "required_params": ["user_id"],
+          "optional_params": ["device_type"]
+        },
+        {
+          "name": "report_screen_time_usage",
+          "description": "Report screen time usage for a user",
+          "required_params": ["user_id", "device_id", "device_type", "minutes_used"],
+          "optional_params": ["date"]
+        }
+      ]
+    },
+    {
+      "name": "family_tool",
+      "display_name": "Family Management",
+      "description": "Manage family information",
+      "server_url": "http://family-tool:8003/execute",
+      "actions": [
+        {
+          "name": "get_family_members",
+          "description": "Get all members of a family",
+          "required_params": [],
+          "optional_params": ["family_id"]
+        }
+      ]
+    },
+    {
+      "name": "user_tool",
+      "display_name": "User Information",
+      "description": "Get information about users",
+      "server_url": "http://user-tool:8004/execute",
+      "actions": [
+        {
+          "name": "get_user_info",
+          "description": "Get information about a specific user",
+          "required_params": [],
+          "optional_params": ["user_id", "username"]
+        }
+      ]
+    }
+  ]
+}

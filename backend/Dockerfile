@@ -1,0 +1,78 @@
+# Dockerfile (Located inside the ./backend directory)
+# Defines the image for the main FastAPI backend and Celery workers
+
+# --- Base Stage ---
+# Use an official Python runtime as a parent image
+FROM python:3.11-slim as base
+
+# Set environment variables for Python behavior and Poetry version
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
+ENV POETRY_VERSION=1.7.1
+
+# Install essential system dependencies needed for building Python packages
+# Add others if required by your specific dependencies (e.g., libraries for image processing)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    curl \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install Poetry itself using pip
+RUN pip install --no-cache-dir "poetry==$POETRY_VERSION"
+
+# Configure Poetry to install packages into the main system site-packages
+# instead of creating a separate virtual environment inside the container.
+RUN poetry config virtualenvs.create false
+
+# Set the working directory within the container
+WORKDIR /app
+
+# --- Builder Stage ---
+# This stage installs dependencies, leveraging Docker cache.
+# It helps keep the final image smaller by not including build tools if using multi-stage,
+# though this example remains single-stage for simplicity with `virtualenvs.create false`.
+FROM base as builder
+
+# Copy only the dependency definition files first.
+# If these files haven't changed, Docker reuses the cached layer below.
+COPY pyproject.toml poetry.lock* /app/
+
+# Install only production dependencies defined in pyproject.toml/poetry.lock
+# --no-root: Don't install the project itself as editable here.
+# --sync: Ensures the environment exactly matches the lock file.
+# --no-interaction / --no-ansi: For cleaner CI/scripted builds.
+RUN poetry install --no-interaction --no-ansi --no-root --sync
+
+# --- Final Runtime Stage ---
+# Start fresh from the base to potentially have a smaller final image,
+# although with `virtualenvs.create false` the benefit is less pronounced
+# than with multi-stage builds using virtualenvs.
+FROM base as final
+
+# Copy the installed packages from the builder stage's site-packages
+# Note: With `virtualenvs.create false`, packages are in the global site-packages.
+# We need to determine the exact path. A common path is /usr/local/lib/python3.11/site-packages
+# This step might be optional if just copying the whole app directory below is sufficient,
+# but explicit copying can sometimes be cleaner. Let's simplify for now.
+# COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+
+# Copy the application code from the build context's current directory (.)
+# into the container's /app directory. Respects .dockerignore.
+# This assumes the Docker build context is set to './backend' in docker-compose.yml.
+# Since WORKDIR is /app, '.' copies into /app.
+COPY . /app/
+
+# Inform Docker that the container listens on port 8000 at runtime.
+EXPOSE 8000
+
+# Default command to run the FastAPI application using Uvicorn.
+# This is suitable for DEVELOPMENT due to `--reload`.
+# Override this command in production (e.g., via docker-compose.override.yml or separate prod Dockerfile/stage).
+# It correctly references 'app.main:app' based on your backend/app/main.py structure.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+# --- Example Production CMD (Commented out) ---
+# For production, remove '--reload' and potentially add '--workers'.
+# The number of workers depends on your server resources (often 2*CPU cores + 1).
+# CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]

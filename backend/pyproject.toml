@@ -1,0 +1,100 @@
+# pyproject.toml (Located in ./backend directory - COMPLETE FILE v1.1)
+
+[tool.poetry]
+name = "localai-family-wellness-backend" # Renamed slightly for clarity
+version = "0.1.0"
+description = "Backend service for the Local AI Family Wellness platform"
+authors = ["Your Name <your.email@example.com>"] # Replace with your info
+readme = "README.md" # Optional: Add if you have a README in ./backend
+
+[tool.poetry.dependencies]
+# Core Python version
+python = "^3.11"
+
+# Web Framework & Server
+fastapi = "^0.109.0"
+uvicorn = {extras = ["standard"], version = "^0.27.0"} # ASGI server
+strawberry-graphql = {extras = ["fastapi"], version = "^0.217.0"} # GraphQL API layer
+python-multipart = "^0.0.6" # For FastAPI form data/file uploads
+
+# Database Interaction (PostgreSQL + pgvector via extension)
+psycopg = {extras = ["binary", "pool"], version = "^3.1.16"} # Async Postgres driver
+sqlalchemy = "^2.0.25" # <-- ADDED SQLAlchemy ORM
+
+# AI Orchestration & Interaction
+langchain = "^0.1.0"
+langchain-community = "^0.0.13"
+# Note: Specific integrations like langchain-postgres or langchain-ollama might be needed later
+httpx = "^0.26.0" # Async HTTP client (for Ollama, Tool Servers)
+
+# Caching & Background Tasks
+redis = "^5.0.1" # Redis client
+celery = {extras = ["redis"], version = "^5.3.6"} # Celery task queue (explicit redis extra)
+
+# Authentication & Security
+python-jose = {extras = ["cryptography"], version = "^3.3.0"} # JWT handling (Keycloak)
+
+# Cloud/External Service Interaction (Local Instances)
+boto3 = "^1.34.32" # For MinIO (S3) interaction
+
+# Utilities
+emails = "^0.6" # For constructing emails
+pydantic = "^2.5.3" # Core data validation used by FastAPI
+pydantic-settings = "^2.1.0" # For loading settings (e.g., from .env)
+zeroconf = "^0.131.0" # For mDNS service discovery
+prometheus-client = "^0.19.0" # For exposing Prometheus metrics
+circuitbreaker = "^1.4.0" # For resilience calling tool servers
+
+# --- pgvector is a PostgreSQL EXTENSION, not a direct Python dependency ---
+# pgvector dependency was correctly removed previously
+
+
+[tool.poetry.group.dev.dependencies]
+# Code Quality & Formatting
+black = "^23.12.1"
+isort = "^5.13.2"
+ruff = "^0.1.9"
+
+# Testing
+pytest = "^7.4.4"
+pytest-asyncio = "^0.23.3"
+httpx = "^0.26.0" # Re-listed here as it's also useful for testing APIs
+
+# Development Workflow
+pre-commit = "^3.6.0"
+
+# Optional: Database Migrations (Highly Recommended for Production)
+# alembic = "^1.13.1"
+
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+
+# --- Tool Configurations ---
+[tool.black]
+line-length = 88
+target-version = ["py311"]
+
+[tool.isort]
+profile = "black"
+line_length = 88
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+# Example rule selection - customize as needed
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "C90",# mccabe complexity
+    "N",  # pep8-naming
+    # Add others like "D" for pydocstyle if desired
+]
+ignore = []
+# Example: ignore specific rules if necessary
+# ignore = ["E501"] # Ignore line too long if absolutely needed

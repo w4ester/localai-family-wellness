@@ -1,0 +1,20 @@
+Generic single-database configuration for Alembic.
+
+## Running Migrations
+
+To generate a new migration after modifying models:
+```
+alembic revision --autogenerate -m "description of changes"
+```
+
+To apply migrations to the database:
+```
+alembic upgrade head
+```
+
+To downgrade to a specific revision:
+```
+alembic downgrade <revision>
+```
+
+For full documentation, see https://alembic.sqlalchemy.org

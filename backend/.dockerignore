@@ -1,0 +1,54 @@
+# .dockerignore (Place this inside the ./backend directory)
+
+# Git files
+.git
+.gitignore
+
+# Docker specific files (often ignored by default, but good practice)
+.dockerignore
+Dockerfile* # Exclude variants if you have them
+
+# Python virtual environment folders (common names)
+.venv
+env/
+venv/
+
+# Python cache files
+__pycache__/
+*.py[cod] # .pyc, .pyo, .pyd
+
+# Python distribution / installation artifacts
+dist/
+build/
+*.egg-info/
+*.egg
+wheels/
+pip-wheel-metadata/
+*.tar.gz
+*.whl
+
+# IDE / Editor configuration folders
+.vscode/
+.idea/
+*.sublime-*
+
+# OS-specific files
+.DS_Store # macOS
+Thumbs.db # Windows
+
+# Test directories and artifacts
+tests/
+.pytest_cache/
+htmlcov/
+.coverage*
+
+# Secrets / Environment files (Should NOT be copied into the image)
+.env* # Matches .env, .env.dev, etc.
+
+# Documentation / Misc
+README.md
+docs/
+notebooks/
+
+# Add any other specific files or directories generated during local dev
+# Example: logs/

@@ -1,0 +1,376 @@
+# docker-compose.yml (Version 1.1 - Enhanced Security - COMPLETE FILE)
+version: '3.8'
+
+# Define networks for service isolation
+networks:
+  frontend-net:
+    driver: bridge
+  backend-net:
+    driver: bridge
+  database-net:
+    driver: bridge
+  monitoring-net:
+    driver: bridge
+  tool-server-net:
+    driver: bridge
+
+# Define volumes for persistent data
+volumes:
+  postgres-data:
+  minio-data:
+  keycloak-data:
+  ollama-models:
+  redis-data:
+  prometheus-data:
+  grafana-data:
+  loki-data:
+  ntfy-data:
+
+services:
+  # Database: PostgreSQL with pgvector and TimescaleDB extensions
+  postgres:
+    # Using Timescale image. Assumes init script in volume below will create pgvector.
+    image: timescale/timescaledb-ha:pg15-latest
+    container_name: localai-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER} # Defined in .env
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD} # Defined in .env
+      POSTGRES_DB: ${POSTGRES_DB} # Defined in .env
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # Mounts local init script(s) into the container's initialization directory.
+      # User MUST create ./config/postgres/init-scripts/init-pgvector.sql with CREATE EXTENSION command.
+      - ./config/postgres/init-scripts:/docker-entrypoint-initdb.d
+    networks:
+      - database-net
+    healthcheck:
+      # Use $$ to escape $ for shell evaluation inside docker-compose
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Object Storage: MinIO (Starts with Root Credentials from .env)
+  minio:
+    image: minio/minio:latest
+    container_name: localai-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER} # Defined in .env
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD} # Defined in .env
+    volumes:
+      - minio-data:/data
+    ports:
+      - "9000:9000"  # API
+      - "9001:9001"  # Console
+    networks:
+      - backend-net
+    healthcheck:
+      # Added user/password for healthcheck assuming mc is configured or anonymous access is disabled
+      test: ["CMD", "mc", "ready", "local"] # Adjust 'local' alias or check mc config if needed
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # AI Model Serving: Ollama
+  ollama:
+    image: ollama/ollama:latest
+    container_name: localai-ollama
+    restart: unless-stopped
+    volumes:
+      - ollama-models:/root/.ollama
+    ports:
+      - "11434:11434"
+    networks:
+      - backend-net
+    # --- Optional GPU Configuration (Uncomment if you have NVIDIA GPU & drivers) ---
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1 # Or 'all'
+    #           capabilities: [gpu]
+    # ---------------------------------------------------------------------------
+
+  # Authentication: Keycloak
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    container_name: localai-keycloak
+    restart: unless-stopped
+    command: start-dev # Use 'start' for production with proper hostname config
+    environment:
+      KC_DB: postgres
+      # Use service name 'postgres' and standard port 5432
+      KC_DB_URL_HOST: postgres
+      KC_DB_URL_DATABASE: ${POSTGRES_DB}
+      KC_DB_USERNAME: ${POSTGRES_USER}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      # Use 'KC_HOSTNAME' for production instead of start-dev
+      # KC_HOSTNAME: your-domain.com
+      KC_HTTP_ENABLED: "true" # Often needed behind reverse proxy or for start-dev
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN} # Defined in .env
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD} # Defined in .env
+    volumes:
+      - keycloak-data:/opt/keycloak/data
+      - ./config/keycloak:/opt/keycloak/conf # Optional: For custom themes/providers
+    ports:
+      - "8080:8080"
+    networks:
+      - backend-net
+      - database-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Caching and Pub/Sub: Redis
+  redis:
+    image: redis:alpine
+    container_name: localai-redis
+    restart: unless-stopped
+    # Added password requirement
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD} # Defined in .env
+    volumes:
+      - redis-data:/data
+    networks:
+      - backend-net
+    healthcheck:
+      # Added password to healthcheck ping
+      test: ["CMD", "redis-cli", "-a", "$${REDIS_PASSWORD}", "ping"] # Use $$ to escape $
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Push Notifications: ntfy
+  ntfy:
+    image: binwiederhier/ntfy:latest
+    container_name: localai-ntfy
+    restart: unless-stopped
+    command: serve
+    volumes:
+      - ntfy-data:/var/cache/ntfy
+      # Ensure server.yml is configured correctly (e.g., auth tokens managed via env/secrets if possible)
+      - ./config/ntfy/server.yml:/etc/ntfy/server.yml
+    ports:
+      - "8090:80" # Host port 8090 maps to container port 80
+    networks:
+      - frontend-net
+      - backend-net
+
+  # FastAPI Backend (to be built from custom Dockerfile)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: localai-backend
+    restart: unless-stopped
+    environment:
+      # Reference variables defined in .env
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0 # Updated with password placeholder
+      OLLAMA_URL: http://ollama:11434
+      KEYCLOAK_URL: http://keycloak:8080
+      MINIO_ENDPOINT: minio:9000 # Internal communication uses service name
+      MINIO_USE_SSL: "false" # Typically false for internal HTTP communication
+      # Use APPLICATION-SPECIFIC keys (created manually in MinIO console)
+      MINIO_ACCESS_KEY: ${MINIO_APP_ACCESS_KEY} # Defined in .env
+      MINIO_SECRET_KEY: ${MINIO_APP_SECRET_KEY} # Defined in .env
+      NTFY_URL: http://ntfy # Internal communication uses service name (port 80 default)
+      # Add any other backend-specific settings from your config.py
+      # Example: API_V1_STR: /api/v1
+      # Example: SECRET_KEY: ${BACKEND_SECRET_KEY} # For JWT signing if not using Keycloak exclusively
+    volumes:
+      # Mount for development hot-reloading; REMOVE for production builds
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    networks:
+      - frontend-net
+      - backend-net
+      - database-net
+    depends_on:
+      postgres:
+        condition: service_healthy # Depend on healthy postgres
+      redis:
+        condition: service_healthy # Depend on healthy redis
+      ollama: # No standard healthcheck, depends on image startup
+        condition: service_started
+      keycloak:
+        condition: service_started # No standard healthcheck, depends on image startup
+      minio:
+        condition: service_healthy # Depend on healthy minio
+      ntfy:
+        condition: service_started # No standard healthcheck, depends on image startup
+
+  # Celery Worker
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: localai-celery-worker
+    restart: unless-stopped
+    # Ensure this path matches your Celery app instance location within backend/app/
+    command: celery -A app.tasks.celery_app worker --loglevel=info
+    environment:
+      # Reference variables defined in .env
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0 # Updated with password placeholder
+      OLLAMA_URL: http://ollama:11434
+      MINIO_ENDPOINT: minio:9000
+      MINIO_USE_SSL: "false"
+      # Use APPLICATION-SPECIFIC keys (created manually in MinIO console)
+      MINIO_ACCESS_KEY: ${MINIO_APP_ACCESS_KEY} # Defined in .env
+      MINIO_SECRET_KEY: ${MINIO_APP_SECRET_KEY} # Defined in .env
+      NTFY_URL: http://ntfy
+    volumes:
+      # Mount for development hot-reloading; REMOVE for production builds
+      - ./backend:/app
+    networks:
+      - backend-net
+      - database-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+      minio:
+        condition: service_healthy
+
+  # Prometheus (Metrics)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: localai-prometheus
+    restart: unless-stopped
+    volumes:
+      - prometheus-data:/prometheus
+      - ./monitoring/prometheus:/etc/prometheus # Ensure prometheus.yml is here
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+    ports:
+      - "9090:9090"
+    networks:
+      - monitoring-net
+      - backend-net # Needs access to scrape targets like backend, ollama, postgres_exporter
+
+  # Grafana (Visualization)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: localai-grafana
+    restart: unless-stopped
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning # For datasources/dashboards
+    environment:
+      # Use variables defined in .env
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "3000:3000"
+    networks:
+      - monitoring-net
+      - frontend-net # Allow access from browser
+    depends_on:
+      - prometheus
+      # - loki # Optional dependency if dashboards rely on Loki immediately
+
+  # Loki (Log Aggregation)
+  loki:
+    image: grafana/loki:latest
+    container_name: localai-loki
+    restart: unless-stopped
+    volumes:
+      - loki-data:/loki
+      - ./monitoring/loki:/etc/loki # Ensure loki-config.yaml is here
+    ports:
+      - "3100:3100"
+    networks:
+      - monitoring-net
+    command: -config.file=/etc/loki/loki-config.yaml
+
+  # Example Tool Server (Screen Time) - Needs its own Dockerfile
+  screen-tool:
+    build:
+      context: ./tool-servers/screen-tool
+      dockerfile: Dockerfile
+    container_name: localai-screen-tool
+    restart: unless-stopped
+    environment:
+      # Reference variables defined in .env
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      # Add any other specific env vars needed by this tool
+    volumes:
+      # Mount for development hot-reloading; REMOVE for production builds
+      - ./tool-servers/screen-tool:/app
+    networks:
+      - backend-net # Allow backend to call it
+      - database-net # Allow it to call database
+    depends_on:
+      postgres:
+        condition: service_healthy
+      # backend: # Only if it DIRECTLY calls the backend API, often not needed
+      #   condition: service_started
+
+  # --- Add other tool server definitions here following the pattern above ---
+  # --- Example structure: ---
+  # communication-tool:
+  #   build:
+  #     context: ./tool-servers/communication-tool
+  #     dockerfile: Dockerfile
+  #   container_name: localai-comm-tool
+  #   restart: unless-stopped
+  #   environment:
+  #     # Add necessary env vars from .env (e.g., SMTP details, NTFY details)
+  #     NTFY_URL: http://ntfy
+  #     SMTP_HOST: ${SMTP_HOST}
+  #     SMTP_PORT: ${SMTP_PORT}
+  #     SMTP_USER: ${SMTP_USER}
+  #     SMTP_PASSWORD: ${SMTP_PASSWORD}
+  #     SMTP_SENDER_EMAIL: ${SMTP_SENDER_EMAIL}
+  #   volumes:
+  #     - ./tool-servers/communication-tool:/app
+  #   networks:
+  #     - backend-net
+  #   depends_on:
+  #     - ntfy
+
+  # file-tool:
+  #   build:
+  #     context: ./tool-servers/file-tool
+  #     dockerfile: Dockerfile
+  #   container_name: localai-file-tool
+  #   restart: unless-stopped
+  #   environment:
+  #     MINIO_ENDPOINT: minio:9000
+  #     MINIO_USE_SSL: "false"
+  #     MINIO_ACCESS_KEY: ${MINIO_APP_ACCESS_KEY} # Uses App Key
+  #     MINIO_SECRET_KEY: ${MINIO_APP_SECRET_KEY} # Uses App Key
+  #   volumes:
+  #     - ./tool-servers/file-tool:/app
+  #   networks:
+  #     - backend-net
+  #   depends_on:
+  #     - minio
+
+  # chore-tool:
+  #   build:
+  #     context: ./tool-servers/chore-tool
+  #     dockerfile: Dockerfile
+  #   container_name: localai-chore-tool
+  #   restart: unless-stopped
+  #   environment:
+  #     DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+  #   volumes:
+  #     - ./tool-servers/chore-tool:/app
+  #   networks:
+  #     - backend-net
+  #     - database-net
+  #   depends_on:
+  #     - postgres
