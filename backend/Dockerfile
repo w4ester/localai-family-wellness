@@ -6,8 +6,8 @@
 FROM python:3.11-slim as base
 
 # Set environment variables for Python behavior and Poetry version
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 ENV POETRY_VERSION=1.7.1
 
 # Install essential system dependencies needed for building Python packages
@@ -34,15 +34,21 @@ WORKDIR /app
 # though this example remains single-stage for simplicity with `virtualenvs.create false`.
 FROM base as builder
 
-# Copy only the dependency definition files first.
-# If these files haven't changed, Docker reuses the cached layer below.
-COPY pyproject.toml poetry.lock* /app/
+# Copy both dependency definition files
+COPY pyproject.toml poetry.lock* requirements.txt* /app/
 
-# Install only production dependencies defined in pyproject.toml/poetry.lock
-# --no-root: Don't install the project itself as editable here.
-# --sync: Ensures the environment exactly matches the lock file.
-# --no-interaction / --no-ansi: For cleaner CI/scripted builds.
-RUN poetry install --no-interaction --no-ansi --no-root --sync
+# Try to install with Poetry first, if not use pip with requirements.txt
+RUN if [ -f pyproject.toml ]; then \
+        echo "Installing with Poetry" && \
+        poetry install --no-interaction --no-ansi --no-root --sync || \
+        (echo "Poetry install failed, falling back to pip" && \
+         pip install --no-cache-dir -r requirements.txt && \
+         touch /app/INSTALLED_WITH_PIP); \
+    else \
+        echo "No pyproject.toml found, using pip" && \
+        pip install --no-cache-dir -r requirements.txt && \
+        touch /app/INSTALLED_WITH_PIP; \
+    fi
 
 # --- Final Runtime Stage ---
 # Start fresh from the base to potentially have a smaller final image,
@@ -55,13 +61,21 @@ FROM base as final
 # We need to determine the exact path. A common path is /usr/local/lib/python3.11/site-packages
 # This step might be optional if just copying the whole app directory below is sufficient,
 # but explicit copying can sometimes be cleaner. Let's simplify for now.
-# COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /app/INSTALLED_WITH_PIP* /app/
 
 # Copy the application code from the build context's current directory (.)
 # into the container's /app directory. Respects .dockerignore.
 # This assumes the Docker build context is set to './backend' in docker-compose.yml.
 # Since WORKDIR is /app, '.' copies into /app.
 COPY . /app/
+
+# Display which installation method was used
+RUN if [ -f /app/INSTALLED_WITH_PIP ]; then \
+        echo "Dependencies were installed with pip"; \
+    else \
+        echo "Dependencies were installed with Poetry"; \
+    fi
 
 # Inform Docker that the container listens on port 8000 at runtime.
 EXPOSE 8000
@@ -70,9 +84,9 @@ EXPOSE 8000
 # This is suitable for DEVELOPMENT due to `--reload`.
 # Override this command in production (e.g., via docker-compose.override.yml or separate prod Dockerfile/stage).
 # It correctly references 'app.main:app' based on your backend/app/main.py structure.
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
 # --- Example Production CMD (Commented out) ---
 # For production, remove '--reload' and potentially add '--workers'.
 # The number of workers depends on your server resources (often 2*CPU cores + 1).
-# CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+# CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]

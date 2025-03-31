@@ -103,4 +103,4 @@ class Chore(Base):
 
     def __repr__(self):
         """String representation for debugging."""
-        return f"<Chore id={self.id} title='{self.title}' status={self.status}>"</function_content>
+        return f"<Chore id={self.id} title='{self.title}' status={self.status}>"

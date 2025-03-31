@@ -48,8 +48,16 @@ class Settings(BaseSettings):
     @classmethod
     def assemble_db_connection(cls, v: Optional[str], info: ValidationInfo) -> Any:
         if isinstance(v, str):
-             # If DATABASE_URL is explicitly set in env, use it
+            # Convert string manually if it's from environment variable
+            if v.startswith('postgresql+psycopg://'):
+                parts = v.split('@')
+                if len(parts) == 2:
+                    auth, server = parts
+                    prefix = auth.split('://')[0] + '://'
+                    user_pass = auth.split('://')[1]
+                    return prefix + user_pass + '@' + server
             return v
+        
         # Otherwise, assemble it from components
         values = info.data
         return PostgresDsn.build(

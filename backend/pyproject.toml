@@ -63,8 +63,9 @@ httpx = "^0.26.0" # Re-listed here as it's also useful for testing APIs
 # Development Workflow
 pre-commit = "^3.6.0"
 
-# Optional: Database Migrations (Highly Recommended for Production)
-# alembic = "^1.13.1"
+# Database Migrations (Required for Production)
+alembic = "^1.15.2"
+pgvector = "^0.2.5" # Python pgvector integration for SQLAlchemy
 
 
 [build-system]

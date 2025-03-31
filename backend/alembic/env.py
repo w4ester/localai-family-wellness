@@ -1,4 +1,5 @@
 import asyncio
+import os
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config, pool
@@ -47,7 +48,12 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    url = config.get_main_option("sqlalchemy.url")
+    # Get the SQLAlchemy URL from environment variable or fallback to config
+    url = os.getenv("DATABASE_URL", config.get_main_option("sqlalchemy.url"))
+    
+    # Ensure URL is in the correct format for async driver
+    if url and not url.startswith("postgresql+psycopg"):
+        url = url.replace("postgresql", "postgresql+psycopg", 1)
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -73,9 +79,15 @@ async def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
-    # Get the SQLAlchemy URL from config
-    config_section = config.get_section(config.config_ini_section)
-    url = config_section["sqlalchemy.url"]
+    # Get the SQLAlchemy URL from environment variable or fallback to config
+    url = os.getenv("DATABASE_URL")
+    if not url:
+        config_section = config.get_section(config.config_ini_section)
+        url = config_section["sqlalchemy.url"]
+    
+    # Ensure URL is in the correct format for async driver
+    if url and not url.startswith("postgresql+psycopg"):
+        url = url.replace("postgresql", "postgresql+psycopg", 1)
     
     # Create async engine
     connectable = create_async_engine(url, poolclass=pool.NullPool)

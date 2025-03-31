@@ -1,5 +1,4 @@
 # docker-compose.yml (Version 1.1 - Enhanced Security - COMPLETE FILE)
-version: '3.8'
 
 # Define networks for service isolation
 networks:
@@ -29,8 +28,9 @@ volumes:
 services:
   # Database: PostgreSQL with pgvector and TimescaleDB extensions
   postgres:
-    # Using Timescale image. Assumes init script in volume below will create pgvector.
-    image: timescale/timescaledb-ha:pg15-latest
+    # Use a PostgreSQL image with pgvector pre-installed
+    image: pgvector/pgvector:pg15
+    platform: linux/arm64
     container_name: localai-postgres
     restart: unless-stopped
     environment:
@@ -40,13 +40,12 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
       # Mounts local init script(s) into the container's initialization directory.
-      # User MUST create ./config/postgres/init-scripts/init-pgvector.sql with CREATE EXTENSION command.
       - ./config/postgres/init-scripts:/docker-entrypoint-initdb.d
     networks:
       - database-net
     healthcheck:
-      # Use $$ to escape $ for shell evaluation inside docker-compose
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      # Use $ to escape $ for shell evaluation inside docker-compose
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -130,15 +129,16 @@ services:
     image: redis:alpine
     container_name: localai-redis
     restart: unless-stopped
+    platform: linux/arm64
     # Added password requirement
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD} # Defined in .env
+    command: redis-server --appendonly yes --requirepass "${REDIS_PASSWORD}"
     volumes:
       - redis-data:/data
     networks:
       - backend-net
     healthcheck:
-      # Added password to healthcheck ping
-      test: ["CMD", "redis-cli", "-a", "$${REDIS_PASSWORD}", "ping"] # Use $$ to escape $
+      # Include authentication for healthcheck
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -317,60 +317,3 @@ services:
         condition: service_healthy
       # backend: # Only if it DIRECTLY calls the backend API, often not needed
       #   condition: service_started
-
-  # --- Add other tool server definitions here following the pattern above ---
-  # --- Example structure: ---
-  # communication-tool:
-  #   build:
-  #     context: ./tool-servers/communication-tool
-  #     dockerfile: Dockerfile
-  #   container_name: localai-comm-tool
-  #   restart: unless-stopped
-  #   environment:
-  #     # Add necessary env vars from .env (e.g., SMTP details, NTFY details)
-  #     NTFY_URL: http://ntfy
-  #     SMTP_HOST: ${SMTP_HOST}
-  #     SMTP_PORT: ${SMTP_PORT}
-  #     SMTP_USER: ${SMTP_USER}
-  #     SMTP_PASSWORD: ${SMTP_PASSWORD}
-  #     SMTP_SENDER_EMAIL: ${SMTP_SENDER_EMAIL}
-  #   volumes:
-  #     - ./tool-servers/communication-tool:/app
-  #   networks:
-  #     - backend-net
-  #   depends_on:
-  #     - ntfy
-
-  # file-tool:
-  #   build:
-  #     context: ./tool-servers/file-tool
-  #     dockerfile: Dockerfile
-  #   container_name: localai-file-tool
-  #   restart: unless-stopped
-  #   environment:
-  #     MINIO_ENDPOINT: minio:9000
-  #     MINIO_USE_SSL: "false"
-  #     MINIO_ACCESS_KEY: ${MINIO_APP_ACCESS_KEY} # Uses App Key
-  #     MINIO_SECRET_KEY: ${MINIO_APP_SECRET_KEY} # Uses App Key
-  #   volumes:
-  #     - ./tool-servers/file-tool:/app
-  #   networks:
-  #     - backend-net
-  #   depends_on:
-  #     - minio
-
-  # chore-tool:
-  #   build:
-  #     context: ./tool-servers/chore-tool
-  #     dockerfile: Dockerfile
-  #   container_name: localai-chore-tool
-  #   restart: unless-stopped
-  #   environment:
-  #     DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-  #   volumes:
-  #     - ./tool-servers/chore-tool:/app
-  #   networks:
-  #     - backend-net
-  #     - database-net
-  #   depends_on:
-  #     - postgres
