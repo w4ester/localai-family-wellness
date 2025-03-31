@@ -1,0 +1,17 @@
+/Users/willf/smartIndex/epicforesters/localai-family-wellness/backend/app/api/v1/README_v1.md
+/Users/willf/smartIndex/epicforesters/localai-family-wellness/older_ultimateREADME.md
+/Users/willf/smartIndex/epicforesters/localai-family-wellness/backendNotes.md
+/Users/willf/smartIndex/epicforesters/localai-family-wellness/backend/filesNEEDINGalignment.md
+/Users/willf/smartIndex/epicforesters/localai-family-wellness/backend/app/backendRecentNamingFixes.md
+/Users/willf/smartIndex/epicforesters/localai-family-wellness/backend/app/backendFixes.md
+/Users/willf/smartIndex/epicforesters/localai-family-wellness/backend/app/auth/README.md
+/Users/willf/smartIndex/epicforesters/localai-family-wellness/backend/app/AUTHENTICATION_AND_MIGRATION_SETUP.md
+/Users/willf/smartIndex/epicforesters/localai-family-wellness/backend/SQLALCHEMY_UPGRADE.md
+/Users/willf/smartIndex/epicforesters/localai-family-wellness/backend/model_upgrade_notes.md
+/Users/willf/smartIndex/epicforesters/localai-family-wellness/whatSTEPSNEXT.md
+/Users/willf/smartIndex/epicforesters/localai-family-wellness/docs/alembic_migrations_guide.md
+/Users/willf/smartIndex/epicforesters/localai-family-wellness/README.md
+/Users/willf/smartIndex/epicforesters/localai-family-wellness/MIGRATION_GUIDE.md
+/Users/willf/smartIndex/epicforesters/localai-family-wellness/docs/MIGRATION_GUIDE.md
+/Users/willf/smartIndex/epicforesters/localai-family-wellness/README_MIGRATIONS.md
+/Users/willf/smartIndex/epicforesters/localai-family-wellness/compareBranch_Main.md

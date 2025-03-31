@@ -31,17 +31,17 @@ MESSAGE=${2:-"Alembic migration"}
 # --- Pre-checks ---
 echo "--> Checking if required Docker services are running..."
 # Check if Postgres container is running and healthy
-if ! docker compose ps -q --filter "name=$DB_CONTAINER_NAME" --filter "health=healthy" | grep -q .; then
+if ! docker compose ps | grep "$DB_CONTAINER_NAME" | grep "healthy" >/dev/null; then
     echo "PostgreSQL container ($DB_CONTAINER_NAME) is not running or not healthy."
     echo "Attempting to start required services..."
     docker compose up -d postgres backend # Start both DB and Backend
     echo "Waiting for services to potentially become healthy..."
     sleep 15 # Give services time to start and potentially pass healthchecks
     # Re-check health after waiting
-    if ! docker compose ps -q --filter "name=$DB_CONTAINER_NAME" --filter "health=healthy" | grep -q .; then
+    if ! docker compose ps | grep "$DB_CONTAINER_NAME" | grep "healthy" >/dev/null; then
         echo "Error: PostgreSQL container ($DB_CONTAINER_NAME) did not become healthy after starting."
         echo "Check Docker logs:"
-        docker compose logs "$DB_CONTAINER_NAME"
+        docker compose logs postgres
         exit 1
     fi
 else
@@ -49,7 +49,7 @@ else
 fi
 
 # Check if Backend container is running (needed for exec)
-if ! docker compose ps -q --filter "name=$BACKEND_CONTAINER_NAME" --filter "status=running" | grep -q .; then
+if ! docker compose ps | grep "$BACKEND_CONTAINER_NAME" | grep -E "Up|running" >/dev/null; then
      echo "Error: Backend container ($BACKEND_CONTAINER_NAME) is not running. Cannot execute Alembic."
      echo "Attempt to start it with 'docker compose up -d backend'"
      exit 1
@@ -60,7 +60,7 @@ echo "Backend container is running."
 # --- Ensure pgvector Extension ---
 # Although the init script should handle this, an explicit check here adds robustness.
 echo "--> Ensuring pgvector extension exists in database '$DB_NAME'..."
-docker compose exec -T "$DB_CONTAINER_NAME" psql -U "$DB_USER" -d "$DB_NAME" -c "CREATE EXTENSION IF NOT EXISTS vector;"
+docker compose exec -T postgres psql -U "$DB_USER" -d "$DB_NAME" -c "CREATE EXTENSION IF NOT EXISTS vector;"
 if [ $? -ne 0 ]; then echo "Error: Failed command to ensure pgvector extension exists."; exit 1; fi
 echo "pgvector extension check/creation successful."
 
@@ -68,8 +68,8 @@ echo "pgvector extension check/creation successful."
 # --- Execute Alembic Command ---
 echo "--> Running 'alembic $COMMAND' inside container '$BACKEND_CONTAINER_NAME'..."
 
-# Prepare Alembic command arguments
-ALEMBIC_CMD="alembic"
+# Prepare Alembic command arguments with poetry
+ALEMBIC_CMD="poetry run alembic"
 
 if [ "$COMMAND" == "generate" ] || [ "$COMMAND" == "revision" ]; then
     # Use 'revision --autogenerate' for generation
@@ -84,7 +84,7 @@ else
 fi
 
 # Execute the assembled Alembic command inside the backend container
-docker compose exec "$BACKEND_CONTAINER_NAME" $ALEMBIC_CMD
+docker compose exec backend $ALEMBIC_CMD
 
 # Check exit status
 if [ $? -ne 0 ]; then
