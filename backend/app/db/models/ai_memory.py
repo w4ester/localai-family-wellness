@@ -9,15 +9,15 @@ IMPORTANT: The `Vector` dimension in the `embedding` column below MUST match
            for the correct dimension (e.g., 768 for nomic-embed-text, 384 for all-minilm).
 """
 from enum import Enum
-from typing import Optional, TYPE_CHECKING # Added TYPE_CHECKING for hints
+from typing import Optional, TYPE_CHECKING, Dict, Any # Added TYPE_CHECKING for hints
 from uuid import UUID # Keep standard UUID import for type hinting
 
-from sqlalchemy import Column, String, ForeignKey, Text, Integer
+from sqlalchemy import String, ForeignKey, Text, Integer
 # Import necessary types from SQLAlchemy and PostgreSQL dialect
 from sqlalchemy import Enum as SQLEnum # Import Enum type for database
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID # Use specific UUID type for column
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 # Import the Vector type from the pgvector SQLAlchemy integration library
 from pgvector.sqlalchemy import Vector
@@ -28,6 +28,7 @@ from app.db.base import Base
 # Type checking import for User relationship hint
 if TYPE_CHECKING:
     from .user_model import User # noqa: F401
+    from .family_model import Family # noqa: F401
 
 
 class MemoryType(str, Enum):
@@ -52,39 +53,40 @@ class AIMemory(Base):
 
     # --- Relationships ---
     # Link to the user this memory primarily relates to (e.g., who said it, who it's about)
-    user_id = Column(PG_UUID(as_uuid=True), ForeignKey("user.id"), nullable=False, index=True)
+    user_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("user.id"), nullable=False, index=True)
     # Defines the relationship to the User model. SQLAlchemy will automatically add a
     # collection (like 'aimemory_collection') to User instances unless 'backref' or
     # 'back_populates' is defined on the User model's side.
-    user: "User" = relationship("User")
+    user: Mapped["User"] = relationship("User")
 
     # Link to the family this memory belongs to (for scoping)
-    family_id = Column(PG_UUID(as_uuid=True), ForeignKey("family.id"), nullable=False, index=True)
+    family_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("family.id"), nullable=False, index=True)
     # No direct relationship object to Family needed by default unless frequently navigating Family -> Memory
+    family: Mapped["Family"] = relationship("Family")
 
     # --- Core Content ---
     # The textual content of the memory
-    text = Column(Text, nullable=False)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
 
     # --- Metadata & Classification ---
     # Type of memory, using the database Enum type for integrity
-    memory_type = Column(SQLEnum(MemoryType, name="memory_type_enum", create_type=True), nullable=False, index=True)
+    memory_type: Mapped[MemoryType] = mapped_column(SQLEnum(MemoryType, name="memory_type_enum", create_type=True), nullable=False, index=True)
 
     # Where did this memory originate? (e.g., 'user_chat', 'system_summary', 'rule_entry')
-    source = Column(String, nullable=True, index=True)
+    source: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
 
     # Flexible JSONB field for additional structured metadata
     # (e.g., {'related_chore_id': '...', 'timestamp_range': '...'})
-    metadata = Column(JSONB, nullable=True)
+    metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)
 
     # --- Retrieval Information ---
     # Importance score assigned by the system or user (higher = more important)
-    importance = Column(Integer, nullable=False, default=1, index=True)
+    importance: Mapped[int] = mapped_column(Integer, nullable=False, default=1, index=True)
 
     # Vector embedding for similarity search (using pgvector)
     # See IMPORTANT note at the top of the file regarding the dimension!
     # Make sure this number (e.g., 768) matches your embedding model's output dimension.
-    embedding = Column(Vector(768), nullable=False) # <-- ADJUST DIMENSION HERE
+    embedding: Mapped[Vector] = mapped_column(Vector(768), nullable=False) # <-- ADJUST DIMENSION HERE
 
     def __repr__(self):
         """String representation for debugging."""

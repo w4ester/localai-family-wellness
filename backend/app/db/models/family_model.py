@@ -13,8 +13,7 @@ from app.db.base import Base
 if TYPE_CHECKING:
     from .user_model import User # noqa: F401 - Needed for relationship type hint
     from .chore_model import Chore # noqa: F401 - Needed for relationship type hint
-    # Add ScreenTimeRule import when defined
-    # from .screen_time_rule_model import ScreenTimeRule # noqa: F401
+    from .screen_time_model import ScreenTimeRule # noqa: F401
 
 
 class Family(Base):
@@ -54,12 +53,12 @@ class Family(Base):
         cascade="all, delete-orphan" # Deleting a family deletes its chores
     )
 
-    # One-to-Many relationship with ScreenTimeRule model (assuming definition)
-    # screen_time_rules: Mapped[List["ScreenTimeRule"]] = relationship(
-    #     "ScreenTimeRule",
-    #     back_populates="family", # Links to the 'family' attribute on ScreenTimeRule
-    #     cascade="all, delete-orphan" # Deleting a family deletes its rules
-    # )
+    # One-to-Many relationship with ScreenTimeRule model
+    screen_time_rules: Mapped[List["ScreenTimeRule"]] = relationship(
+        "ScreenTimeRule",
+        back_populates="family", # Links to the 'family' attribute on ScreenTimeRule
+        cascade="all, delete-orphan" # Deleting a family deletes its rules
+    )
 
     def __repr__(self) -> str:
         """String representation for debugging."""

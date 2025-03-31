@@ -1,14 +1,12 @@
-# .dockerignore (Place this inside the ./backend directory)
-
 # Git files
 .git
 .gitignore
 
-# Docker specific files (often ignored by default, but good practice)
+# Docker specific files
 .dockerignore
-Dockerfile* # Exclude variants if you have them
+Dockerfile*
 
-# Python virtual environment folders (common names)
+# Python virtual environment folders
 .venv
 env/
 venv/
@@ -33,8 +31,9 @@ pip-wheel-metadata/
 *.sublime-*
 
 # OS-specific files
-.DS_Store # macOS
-Thumbs.db # Windows
+.DS_Store
+**/.DS_Store
+Thumbs.db
 
 # Test directories and artifacts
 tests/
@@ -42,13 +41,17 @@ tests/
 htmlcov/
 .coverage*
 
-# Secrets / Environment files (Should NOT be copied into the image)
-.env* # Matches .env, .env.dev, etc.
+# Secrets / Environment files
+.env
+.env.*
+!.env.example
 
 # Documentation / Misc
 README.md
+*.md
 docs/
 notebooks/
 
-# Add any other specific files or directories generated during local dev
-# Example: logs/
+# Logs
+logs/
+*.log

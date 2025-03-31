@@ -24,7 +24,7 @@ from app.db.base import Base
 from app.db.models.user_model import User
 from app.db.models.family_model import Family
 from app.db.models.screen_time_model import ScreenTimeRule, ScreenTimeUsage, ScreenTimeExtensionRequest
-from app.db.models.chore_model import Chore, ChoreCompletion
+from app.db.models.chore_model import Chore
 from app.db.models.ai_memory import AIMemory
 
 target_metadata = Base.metadata
