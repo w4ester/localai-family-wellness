@@ -60,7 +60,7 @@ See [docs/alembic_migrations_guide.md](docs/alembic_migrations_guide.md) for det
 
 Start the application using Docker Compose:
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 ## Project Structure
